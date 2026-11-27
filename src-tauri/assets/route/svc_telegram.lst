@@ -1,0 +1,24 @@
+# Пресет: Telegram
+# Источник: https://github.com/itdoginfo/allow-domains (GPL-3.0)
+# Вшито в Sentor; строки вида domain.tld = домен и все поддомены
+#
+cdn-telegram.org
+comments.app
+contest.com
+fragment.com
+graph.org
+quiz.directory
+t.me
+tdesktop.com
+telega.one
+telegra.ph
+telegram-cdn.org
+telegram.dog
+telegram.me
+telegram.org
+telegram.space
+telesco.pe
+tg.dev
+ton.org
+tx.me
+usercontent.dev

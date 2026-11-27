@@ -1,0 +1,71 @@
+[package]
+name = "sentor"
+version = "1.0.0"
+description = "Sentor - VPN/proxy desktop client (Rust + Tauri 2)"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-ico", "image-png"] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+url = "2"
+base64 = "0.22"
+percent-encoding = "2"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "json"] }
+flate2 = "1"
+regex = "1"
+html-escape = "0.2"
+fastrand = "2"
+serde_yaml = "0.9"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+sha2 = "0.10"
+sha1 = "0.10"
+rsa = "0.9"
+aes-gcm = "0.10"
+chacha20poly1305 = "0.10"
+aead = "0.5"
+x25519-dalek = "2"
+getrandom = "0.3"
+# CSQTT: Wintun-адаптер для драйвера туннеля (FFI к wintun.dll, грузится в рантайме)
+wintun = "0.5"
+rustls = "0.23"
+webpki-roots = "0.26"
+include_dir = "0.7"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+rfd = "0.15"
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_UI_Shell",
+  "Win32_System_Registry",
+  "Win32_Networking_WinInet",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+  # LoadLibraryW/GetProcAddress (cqstt_session.rs): прямое WintunDeleteAdapter
+  # для сирот — крейт wintun умеет удалять только свои, созданные в процессе
+  "Win32_System_LibraryLoader",
+  # CreateJobObjectW (conn.rs) требует тип SECURITY_ATTRIBUTES из Win32_Security,
+  # а SYNCHRONIZE (conn.rs) — Win32_Storage; IP_ADAPTER_ADDRESSES_LH — за
+  # feature-gate Win32_NetworkManagement_Ndis: все три нужны, хоть имена из
+  # них напрямую не импортируются
+  "Win32_Storage",
+  "Win32_Security",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_NetworkManagement_Ndis",
+  "Win32_Networking_WinSock",
+] }
+
+[[bin]]
+name = "sentor"
+path = "src/main.rs"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

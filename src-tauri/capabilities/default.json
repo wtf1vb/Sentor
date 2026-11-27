@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default permissions for Sentor windows (core APIs incl. events)",
+  "windows": ["main", "checker"],
+  "permissions": ["core:default"]
+}

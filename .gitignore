@@ -1,0 +1,31 @@
+# ===== сборка =====
+target/
+src-tauri/target/
+
+# ===== локальные логи и скрипты разработки (машинно-специфичные) =====
+*.log
+*.cmd
+*.ps1
+backup/
+
+# релизные бинарники выкладываются в GitHub Releases, не в репо
+release/
+
+# ===== локальные тестовые артефакты в корне =====
+test_etats.*
+event_probe_*.txt
+nrpt_fix_result.txt
+slog_copy.txt
+
+# ===== IDE =====
+.idea/
+.vscode/
+
+# ===== релизные бинарники в корне (копии; свежие идут в GitHub Releases) =====
+Sentor_*.zip
+Sentor_prev.exe
+
+# ===== plaintext keymat и тестовые конфиги: только локально (в репо только .enc) =====
+src-tauri/assets/happcrypt/*.json
+src-tauri/assets/happcrypt/*.b64
+warp-helper/test_*.conf

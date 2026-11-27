@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<title>Sentor — Проверка стратегий</title><script src="../sentor-shim.js"></script>
+<style>
+:root{--bg:#0f1218;--card:#171c26;--card2:#1e2530;--text:#e8ecf3;--muted:#8b94a7;--accent:#4f8cff;--ok:#31c48d;--bad:#f05252;--border:#262d3a}
+[data-theme="light"]{--bg:#f2f4f8;--card:#ffffff;--card2:#eef1f6;--text:#1a2233;--muted:#5c6578;--accent:#2f6fed;--ok:#0e9f6e;--bad:#e02424;--border:#dce1ea}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);padding:18px 20px;height:100vh;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.top{display:flex;align-items:center;gap:14px}
+h1{font-size:18px;font-weight:700;flex:1}
+.btn{background:var(--accent);border:none;color:#fff;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.45;cursor:default;filter:none}
+#status{font-size:13px;color:var(--muted);min-width:210px}
+.chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap}
+.chk input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;margin:0}
+.cols{flex:1;display:grid;grid-template-columns:1.45fr 1fr;gap:14px;min-height:0}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+td[title]{cursor:help}
+.pane{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;overflow-y:auto;min-height:0}
+.pane h2{font-size:14px;margin-bottom:10px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 6px;text-align:left;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:600}
+th.sortable{cursor:pointer}
+th.sortable:hover{color:var(--text)}
+td.ok{color:var(--ok)}
+td.bad{color:var(--bad)}
+td.lat{font-variant-numeric:tabular-nums}
+tr.sel td{background:rgba(79,140,255,.08)}
+tr.sel td:first-child{border-left:3px solid var(--accent)}
+#logs{font-family:Consolas,monospace;font-size:12px;white-space:pre-wrap;color:var(--muted);line-height:1.5}
+.bottom{display:flex;align-items:center;gap:14px;font-size:13px}
+.bottom .lbl{color:var(--muted)}
+#sel{font-weight:700}
+#msg{color:var(--muted);font-size:12.5px;min-height:16px}
+.btn:active{transform:translateY(1px)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pane::-webkit-scrollbar{width:9px}
+.pane::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* ---- всплывающие уведомления ---- */
+#toasts{position:fixed;top:54px;right:20px;z-index:60;display:flex;flex-direction:column;gap:8px;max-width:380px}
+.toast{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:10px 14px;font-size:12.5px;line-height:1.45;box-shadow:0 8px 28px rgba(0,0,0,.35);color:var(--text);white-space:pre-wrap;word-break:break-word;cursor:pointer;animation:toastIn .22s ease;transition:opacity .25s,transform .25s}
+.toast.ok{border-left-color:var(--ok)}
+.toast.bad{border-left-color:var(--bad)}
+.toast.warn{border-left-color:var(--warn)}
+.toast.hide{opacity:0;transform:translateX(12px)}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>🔍 Проверка стратегий Zapret</h1>
+  <span id="status">Нажми «Начать проверку»</span>
+  <label class="chk" title="По завершении сам применит самый быстрый рабочий профиль"><input type="checkbox" id="autoSel" checked/>🏆 автовыбор лучшего</label>
+  <button class="btn" id="stopBtn" disabled>⏹ Стоп</button>
+  <button class="btn" id="startBtn">🔄 Начать проверку</button>
+</div>
+<div class="cols">
+  <div class="pane">
+    <h2>Итоги (кликни «Задержка» для сортировки)</h2>
+    <table>
+      <thead><tr><th>Стратегия</th><th>Статус</th><th title="discord.com — HTTP/1.1, TLS 1.2, TLS 1.3 (наведи для деталей)">Discord API</th><th title="gateway.discord.gg — живое соединение клиента Discord">Gateway</th><th class="sortable" id="thLat">Задержка ⇅</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="pane">
+    <h2>Логи проверки</h2>
+    <div id="logs"></div>
+  </div>
+</div>
+<div class="bottom">
+  <span class="lbl">Выбран профиль:</span><span id="sel">—</span>
+  <span id="msg"></span>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let sortDir=0,lastSort=-1,lastSig='',lastS=null,tmr=null,stopReq=false;
+/* ---------- всплывающие уведомления ---------- */
+let toastBox=null;
+function toast(msg,kind,ms){
+ msg=String(msg||'').trim();
+ if(!msg)return;
+ kind=kind||(/^❌|^🔴/.test(msg)?'bad':/^⚠️|^⏹/.test(msg)?'warn':/^✅|^🏆|^🟢/.test(msg)?'ok':'info');
+ if(!toastBox){toastBox=document.createElement('div');toastBox.id='toasts';document.body.appendChild(toastBox)}
+ while(toastBox.children.length>=4)toastBox.firstChild.remove();
+ const t=document.createElement('div');
+ t.className='toast '+kind;
+ t.textContent=msg;
+ t.onclick=()=>killToast(t);
+ toastBox.appendChild(t);
+ setTimeout(()=>killToast(t),ms||6000);
+}
+function killToast(t){if(!t.parentNode)return;t.classList.add('hide');setTimeout(()=>t.remove(),260)}
+$('thLat').onclick=()=>{sortDir=sortDir===1?-1:(sortDir===-1?0:1);poll();};
+// esc экранирует и кавычки: имя стратегии вставляется в атрибут data-n="…",
+// имя файла с " ломало бы разметку
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let autoSel=localStorage.getItem('nc_autoselect')!=='0';
+$('autoSel').checked=autoSel;
+$('autoSel').onchange=e=>{autoSel=e.target.checked;localStorage.setItem('nc_autoselect',autoSel?'1':'0');};
+$('startBtn').onclick=async()=>{ stopReq=false;$('msg').textContent='⏳ Запускаю… (каждая стратегия проверяется ~4 сек)'; try{await window.go.main.App.CheckerStart(autoSel);}catch(e){$('msg').textContent='❌ '+e;} poll(); };
+$('stopBtn').onclick=async()=>{ stopReq=true;$('msg').textContent='⏹ Останавливаю…'; try{await window.go.main.App.CheckerStop();}catch(e){$('msg').textContent='❌ '+e;} poll(); };
+function render(s){
+ const prev=lastS;
+ lastS=s;
+ /* проверка только что закончила работать — тост: остановлена или итог */
+ if(prev&&prev.running&&!s.running){
+  if(stopReq){toast('⏹ Проверка остановлена','warn');}
+  else{
+   const res=s.results||[],ok=res.filter(r=>r.ok).length;
+   toast(ok?('✅ Проверка завершена: '+ok+' из '+res.length+' стратегий работают'):'🔴 Ни одна стратегия не работает',ok?'ok':'warn',8000);
+  }
+  stopReq=false;
+ }
+ $('status').textContent=s.running?'⏳ Проверка идёт…':(s.done?'✅ Проверка завершена':'Нажми «Начать проверку»');
+ $('startBtn').disabled=s.running;
+ $('stopBtn').disabled=!s.running;
+ $('sel').textContent=s.selected||'—';
+ const logs=(s.logs||[]).join('\n');
+ if($('logs').textContent!==logs){$('logs').textContent=logs;$('logs').scrollTop=$('logs').scrollHeight;}
+ const sig=(s.results||[]).map(r=>r.name+'\x1f'+r.ok+'\x1f'+r.latencyMs+'\x1f'+r.discordOk+'\x1f'+r.apiHttp+r.apiTls12+r.apiTls13+'\x1f'+r.gatewayHttp+r.gatewayTls12+r.gatewayTls13+'\x1f'+r.apiMs+'\x1f'+r.gatewayMs).join('\x1e')+'|'+s.selected+'|'+s.running;
+ if(sig===lastSig&&sortDir===lastSort)return;
+ lastSig=sig;lastSort=sortDir;
+ let rows=(s.results||[]).slice();
+ if(sortDir!==0){rows.sort((a,b)=>{const av=a.latencyMs<0?1e15:a.latencyMs,bv=b.latencyMs<0?1e15:b.latencyMs;return (av-bv)*sortDir;});}
+ const tb=$('tbody');tb.innerHTML='';
+ for(const r of rows){
+  const tr=document.createElement('tr');
+  if(s.selected===r.name)tr.classList.add('sel');
+  const lat=r.latencyMs>=0?r.latencyMs+' ms':'—';
+  const mkCell=(h,t12,t13,ms)=>{
+   const okk=h||t12||t13;
+   const tip='HTTP/1.1: '+(h?'✓':'✗')+' · TLS 1.2: '+(t12?'✓':'✗')+' · TLS 1.3: '+(t13?'✓':'✗');
+   return '<td class="'+(okk?'ok':'bad')+'" title="'+tip+'">'+(okk?('✓ '+(ms>=0?ms+' ms':'')):'✗')+'</td>';
+  };
+  tr.innerHTML='<td>'+esc(r.name)+'</td><td class="'+(r.ok?'ok':'bad')+'">'+(r.ok?'🟢 работает':'🔴 не работает')+'</td>'+mkCell(r.apiHttp,r.apiTls12,r.apiTls13,r.apiMs)+mkCell(r.gatewayHttp,r.gatewayTls12,r.gatewayTls13,r.gatewayMs)+'<td class="lat">'+lat+'</td><td><button class="btn" data-n="'+esc(r.name)+'" '+(s.running?'disabled':'')+'>Выбрать</button></td>';
+  tb.appendChild(tr);
+ }
+ tb.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
+  b.disabled=true;$('msg').textContent='⏳ Применяю профиль…';
+  try{
+   const r=await window.go.main.App.CheckerSelect(b.dataset.n);
+   $('msg').textContent=r;
+   toast(r);
+  }catch(e){$('msg').textContent='❌ '+e;toast('❌ '+e,'bad');}
+  poll();
+ });
+}
+/* адаптивный опрос: 800мс пока идёт проверка, 4с в простое; у свёрнутого окна IPC не дёргаем */
+async function poll(){
+ clearTimeout(tmr);
+ if(document.hidden){tmr=setTimeout(poll,3000);return;}
+ try{render(await window.go.main.App.CheckerState());}catch(e){}
+ tmr=setTimeout(poll,(lastS&&lastS.running)?800:4000);
+}
+poll();
+</script>
+</body>
+</html>
